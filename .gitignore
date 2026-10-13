@@ -1,0 +1,8 @@
+node_modules/
+web/dist/
+pipeline/.venv/
+pipeline/raw/
+pipeline/*.log
+__pycache__/
+.DS_Store
+web/tsconfig.tsbuildinfo
