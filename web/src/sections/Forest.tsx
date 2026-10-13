@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { scaleLinear } from "d3-scale";
-import { useWidth } from "../charts/kit";
+import { line } from "d3-shape";
+import { HoverColumns, Legend, Plot, TipRow, useWidth } from "../charts/kit";
 import { Card, Callout, Loading, Slider, SourceNote } from "../components/ui";
 import { fmt, PlaygroundData, TreeNode, useData } from "../data";
 
@@ -17,6 +18,10 @@ function route(t: TreeNode, pt: Patient): TreeNode[] {
 }
 
 const FEAT = { age: "Age", bmi: "BMI" };
+const TREE_COLOR = ["var(--m-linear)", "var(--m-gbm)", "var(--m-tabicl)"];
+const AVG_COLOR = "var(--ink)";
+
+const leafOf = (t: TreeNode, pt: Patient) => (route(t, pt).at(-1) as Extract<TreeNode, { leaf: true }>).value;
 
 /** Draws a depth-2 tree as a flowchart, highlighting the path this patient takes. */
 function TreeDiagram({ tree, patient, index }: { tree: TreeNode; patient: Patient; index: number }) {
@@ -37,7 +42,7 @@ function TreeDiagram({ tree, patient, index }: { tree: TreeNode; patient: Patien
   return (
     <div ref={ref}>
       <div className="row" style={{ justifyContent: "space-between" }}>
-        <b className="small">Tree {index + 1}</b>
+        <span className="row" style={{ gap: 6 }}><span className="swatch" style={{ background: TREE_COLOR[index] }} /><b className="small">Tree {index + 1}</b></span>
         <span className="small">predicts <b className="tnum" style={{ color: "var(--m-rf)" }}>{fmt(leaf.value, 0)}</b></span>
       </div>
       <svg width={W} height={H} role="img" aria-label={`Decision tree ${index + 1}`}>
@@ -66,6 +71,46 @@ function TreeDiagram({ tree, patient, index }: { tree: TreeNode; patient: Patien
           );
         })}
       </svg>
+    </div>
+  );
+}
+
+/** Each tree's prediction (and their average) as one predictor sweeps its range, the other held at the patient's value. */
+function TreeLines({ trees, patient, feature }: { trees: TreeNode[]; patient: Patient; feature: keyof Patient }) {
+  const [lo, hi, step] = feature === "age" ? [18, 80, 0.1] : [16, 54, 0.05];
+  const xs = Array.from({ length: Math.round((hi - lo) / step) + 1 }, (_, i) => lo + i * step);
+  const preds = trees.map((t) => xs.map((v) => leafOf(t, { ...patient, [feature]: v })));
+  const avg = xs.map((_, i) => preds.reduce((s, p) => s + p[i], 0) / preds.length);
+  const all = preds.flat();
+  const ylo = Math.min(...all), yhi = Math.max(...all), pad = Math.max(2, (yhi - ylo) * 0.1);
+  const other = feature === "age" ? `BMI held at ${fmt(patient.bmi, 1)}` : `age held at ${patient.age}`;
+  return (
+    <div>
+      <div className="small muted" style={{ marginBottom: 4 }}>Sweep {feature === "age" ? "age" : "BMI"}, {other}</div>
+      <Plot height={260} xDomain={[lo, hi]} yDomain={[ylo - pad, yhi + pad]} nice={false}
+        xLabel={feature === "age" ? "Age (years)" : "BMI"} yLabel="Predicted SBP (mmHg)"
+        ariaLabel={`Predicted SBP from each of the three trees and their average as ${FEAT[feature]} varies`}>
+        {(ctx) => {
+          const { x, y, h } = ctx;
+          const mk = line<number>().x((_, i) => x(xs[i])).y((v) => y(v));
+          return (
+            <g>
+              <line x1={x(patient[feature])} x2={x(patient[feature])} y1={0} y2={h} stroke="var(--m-rf)" strokeWidth={1.5} strokeDasharray="4 3" />
+              {preds.map((p, i) => (
+                <path key={i} d={mk(p) ?? ""} fill="none" stroke={TREE_COLOR[i]} strokeWidth={2} opacity={0.85} strokeLinejoin="round" />
+              ))}
+              <path d={mk(avg) ?? ""} fill="none" stroke={AVG_COLOR} strokeWidth={3.2} strokeLinejoin="round" />
+              <HoverColumns xs={xs} ctx={ctx} render={(k) => (
+                <>
+                  <TipRow label={<b>{FEAT[feature]} {fmt(xs[k], 1)}</b>} value="" />
+                  {preds.map((p, i) => <TipRow key={i} color={TREE_COLOR[i]} label={`Tree ${i + 1}`} value={fmt(p[k], 0)} />)}
+                  <TipRow color={AVG_COLOR} label="Average" value={fmt(avg[k], 1)} />
+                </>
+              )} />
+            </g>
+          );
+        }}
+      </Plot>
     </div>
   );
 }
@@ -118,7 +163,7 @@ export default function Forest() {
   const [pt, setPt] = useState<Patient>({ age: 55, bmi: 28 });
   if (!pg) return <Loading />;
   const t = pg.trees;
-  const leafVals = t.trees.map((tr) => (route(tr, pt).at(-1) as Extract<TreeNode, { leaf: true }>).value);
+  const leafVals = t.trees.map((tr) => leafOf(tr, pt));
   const avg3 = leafVals.reduce((a, b) => a + b, 0) / leafVals.length;
   const g = t.forest_grid;
   const ai = g.ages.reduce((b, a, i) => (Math.abs(a - pt.age) < Math.abs(g.ages[b] - pt.age) ? i : b), 0);
@@ -138,6 +183,17 @@ export default function Forest() {
           <Card key={i}><TreeDiagram tree={tr} patient={pt} index={i} /></Card>
         ))}
       </div>
+      <Card title="Three trees, and their average" sub="Each tree's prediction is a staircase: flat within a leaf, jumping at each split. Averaging them gives more, smaller steps. The dashed line is your patient.">
+        <Legend items={[
+          ...t.trees.map((_, i) => ({ label: `Tree ${i + 1}`, color: TREE_COLOR[i] })),
+          { label: "Average of 3 trees", color: AVG_COLOR },
+          { label: "Your patient", color: "var(--m-rf)", kind: "dash" as const },
+        ]} />
+        <div className="grid-2">
+          <TreeLines trees={t.trees} patient={pt} feature="age" />
+          <TreeLines trees={t.trees} patient={pt} feature="bmi" />
+        </div>
+      </Card>
       <div className="split-wide">
         <Card title="The full forest: 300 trees" sub={`Predicted SBP by age and BMI, trained on ${t.n} NHANES adults (dots). The ring is your patient.`}>
           <ForestMap data={t} patient={pt} />
