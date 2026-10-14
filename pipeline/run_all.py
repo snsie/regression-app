@@ -278,7 +278,7 @@ def playground():
         x, y = p["x"].astype(float), p["y"].astype(float)
         lo, hi = x.min(), x.max()
         span = hi - lo
-        grid = np.linspace(lo - 0.35 * span, hi + 0.35 * span, 140)
+        grid = np.linspace(max(0.0, lo - 0.35 * span), hi + 0.35 * span, 140)  # every predictor is positive
         G = grid[:, None]
         entry = {k: v for k, v in p.items() if k not in ("x", "y")}
         entry |= {"x": rnd(x, 2), "y": rnd(y, 1), "grid": rnd(grid, 3), "data_range": [rnd(lo, 2), rnd(hi, 2)]}

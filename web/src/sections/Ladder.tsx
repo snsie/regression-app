@@ -65,7 +65,7 @@ export default function Ladder() {
       <p className="small muted" style={{ margin: 0 }}>More flexible and less transparent as you go right. Click a rung to show or hide it on the chart.</p>
 
       <div className="split-wide">
-        <Card title={`${p.y_label} vs ${p.x_label}: each model's f(x)`} sub="300 NHANES adults. Lines show each model's prediction across the range, and beyond it.">
+        <Card title={`${p.y_label} vs ${p.x_label}: each model's f(x)`} sub={`300 ${p.sample}. Lines show each model's prediction across the range, and beyond it.`}>
           <div className="controls-bar">
             <Segmented label="Data" value={pair} onChange={setPair} options={PAIR_OPTIONS} />
             <Toggle checked={extrap} onChange={setExtrap}>Show beyond the data</Toggle>
@@ -152,6 +152,7 @@ export default function Ladder() {
         Try it: random forest with 1 patient per leaf on <b>BMI → SBP</b>. The line chases individual patients, training R² climbs, and held-out R² goes
         <i> negative</i>: worse than the baseline. Then switch on <b>Show beyond the data</b>. Trees go flat at the edge of the data, while the line keeps going
         confidently. Neither is safe outside the range you trained on.
+        Last, pick <b>Age → FEV₁</b>: the line stays almost flat and misses the rise and fall, while every flexible model bends to follow it.
       </Callout>
     </div>
   );

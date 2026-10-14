@@ -6,7 +6,7 @@ import { DATASET_IDS, DatasetId, fmt, MODEL_COLOR, MODEL_IDS, MODEL_LABEL, useDa
 const CELLS = 20;
 
 export default function CrossValidation() {
-  const [id, setId] = useState<DatasetId>("diabetes");
+  const [id, setId] = useState<DatasetId>("nhanes_fev1");
   const [fold, setFold] = useState(0);
   const [play, setPlay] = useState(false);
   const [metric, setMetric] = useState<"r2" | "rmse">("r2");

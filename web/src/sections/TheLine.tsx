@@ -4,13 +4,12 @@ import { Card, Callout, Loading, PauseThink, Segmented, Slider, Toggle } from ".
 import { fmt, fmtSigned, leastAbsolute, leastSquares, mean, PlaygroundData, useData } from "../data";
 import { PAIR_OPTIONS, PairId } from "./Framing";
 
-const EXAMPLE_X: Record<PairId, number> = { age_sbp: 55, bmi_sbp: 28, a1c_glucose: 7 };
-const DIFF_X: Record<PairId, number> = { age_sbp: 10, bmi_sbp: 5, a1c_glucose: 1 };
+const EXAMPLE_X: Record<PairId, number> = { age_sbp: 55, bmi_sbp: 28, a1c_glucose: 7, age_fev1: 12 };
+const DIFF_X: Record<PairId, number> = { age_sbp: 10, bmi_sbp: 5, a1c_glucose: 1, age_fev1: 10 };
 
 export default function TheLine() {
   const pg = useData<PlaygroundData>("playground");
   const [pair, setPair] = useState<PairId>("age_sbp");
-  const [loss, setLoss] = useState<"sq" | "abs">("sq");
   const [showSquares, setShowSquares] = useState(false);
   const [outlier, setOutlier] = useState(false);
   const [outY, setOutY] = useState(0);
@@ -26,6 +25,8 @@ export default function TheLine() {
   // the line is parameterized as (height at x̄, slope) so sliders stay intuitive
   const [level, setLevel] = useState(0);
   const [slope, setSlope] = useState(0);
+  // which preset the line currently sits on; any manual change clears it
+  const [snapped, setSnapped] = useState<"ls" | "lad" | "flat" | null>("flat");
 
   const data = useMemo(() => {
     if (!p || !base) return null;
@@ -41,6 +42,7 @@ export default function TheLine() {
     // start each dataset with a flat line at the mean: the baseline
     setLevel(mean(p.y));
     setSlope(0);
+    setSnapped("flat");
     setOutY(base.ymin + (base.ymax - base.ymin) * 0.02);
     setOutlier(false);
   }, [pair, p, base]);
@@ -54,21 +56,22 @@ export default function TheLine() {
   const sae = res.reduce((s, e) => s + Math.abs(e), 0);
   const minSse = data.x.reduce((s, v, i) => s + (data.y[i] - (ls.intercept + ls.slope * v)) ** 2, 0);
   const minSae = data.x.reduce((s, v, i) => s + Math.abs(data.y[i] - (lad.intercept + lad.slope * v)), 0);
-  const cur = loss === "sq" ? sse : sae;
-  const best = loss === "sq" ? minSse : minSae;
-  const ratio = cur / best;
+  const se = res.reduce((s, e) => s + e, 0);
 
   const lsBase = leastSquares(p.x, p.y);
-  const slopeRange = Math.abs(lsBase.slope) * 3 + 1e-6;
+  // a nearly flat best line (Age → FEV₁) still needs room to tilt
+  const slopeRange = Math.max(Math.abs(lsBase.slope) * 3, (0.3 * (base.ymax - base.ymin)) / (base.xmax - base.xmin));
   const ySpan = base.ymax - base.ymin;
   const xd: [number, number] = [base.xmin - (base.xmax - base.xmin) * 0.04, base.xmax + (base.xmax - base.xmin) * 0.04];
   const yd: [number, number] = [Math.min(base.ymin, outY) - ySpan * 0.04, base.ymax + ySpan * 0.04];
   const ex = EXAMPLE_X[pair];
   const unit1 = p.x_units.replace(/s$/, "");
-  const snap = (f: { slope: number; intercept: number }) => {
+  const snap = (f: { slope: number; intercept: number }, which: "ls" | "lad" | "flat") => {
     setSlope(f.slope);
     setLevel(f.intercept + f.slope * base.xbar);
+    setSnapped(which);
   };
+  const btn = (which: "ls" | "lad" | "flat") => (snapped === which ? "btn primary" : "btn");
 
   return (
     <div className="stack">
@@ -76,18 +79,17 @@ export default function TheLine() {
         <Card>
           <div className="controls-bar">
             <Segmented label="Data" value={pair} onChange={setPair} options={PAIR_OPTIONS} />
-            <Segmented label="Loss" value={loss} onChange={setLoss} options={[{ value: "sq", label: "Squared error" }, { value: "abs", label: "Absolute error" }]} />
           </div>
           <div className="controls-bar">
             <Slider label={`Slope (${p.y_units} per ${unit1})`} value={slope} min={-slopeRange} max={slopeRange} step={slopeRange / 200}
-              onChange={setSlope} format={(v) => fmtSigned(v, 2)} />
+              onChange={(v) => { setSlope(v); setSnapped(null); }} format={(v) => fmtSigned(v, 2)} />
             <Slider label={`Height at average ${p.x_label} (${fmt(base.xbar, 1)})`} value={level} min={base.ymin} max={base.ymax}
-              step={(base.ymax - base.ymin) / 300} onChange={setLevel} format={(v) => fmt(v, 1)} />
+              step={(base.ymax - base.ymin) / 300} onChange={(v) => { setLevel(v); setSnapped(null); }} format={(v) => fmt(v, 1)} />
           </div>
           <div className="row" style={{ marginBottom: 8 }}>
-            <button className="btn primary" onClick={() => snap(ls)}>Snap to least squares</button>
-            <button className="btn" onClick={() => snap(lad)}>Snap to least absolute error</button>
-            <button className="btn" onClick={() => { setSlope(0); setLevel(mean(data.y)); }}>Flat line (baseline)</button>
+            <button className={btn("ls")} onClick={() => snap(ls, "ls")}>Snap to least squares</button>
+            <button className={btn("lad")} onClick={() => snap(lad, "lad")}>Snap to least absolute error</button>
+            <button className={btn("flat")} onClick={() => snap({ slope: 0, intercept: mean(data.y) }, "flat")}>Flat line (baseline)</button>
           </div>
           <Legend items={[
             { label: "Your line", color: "var(--ink)" },
@@ -142,10 +144,10 @@ export default function TheLine() {
           </Plot>
           <div className="row" style={{ marginTop: 8 }}>
             <Toggle checked={showSquares} onChange={setShowSquares}>Draw each squared residual</Toggle>
-            <Toggle checked={outlier} onChange={setOutlier}>Add one extreme patient</Toggle>
+            <Toggle checked={outlier} onChange={(v) => { setOutlier(v); setSnapped(null); }}>Add one extreme patient</Toggle>
             {outlier && (
               <Slider label="Extreme patient's value" value={outY} min={base.ymin - ySpan * 0.6} max={base.ymax + ySpan * 0.6} step={ySpan / 200}
-                onChange={setOutY} format={(v) => `${fmt(v, 0)} ${p.y_units}`} width={300} />
+                onChange={(v) => { setOutY(v); setSnapped(null); }} format={(v) => `${fmt(v, 0)} ${p.y_units}`} width={300} />
             )}
           </div>
         </Card>
@@ -156,13 +158,12 @@ export default function TheLine() {
             <div style={{ fontSize: "1.3rem", fontWeight: 650, margin: "6px 0" }} className="tnum">
               ŷ = {fmt(intercept, 1)} {slope >= 0 ? "+" : "−"} {fmt(Math.abs(slope), 2)} × {p.x_label}
             </div>
-            <div className="stat-label" style={{ marginTop: 14 }}>{loss === "sq" ? "Sum of squared residuals Σe²" : "Sum of absolute residuals Σ|e|"}</div>
-            <div className="stat-value tnum">{fmt(cur, 0)}</div>
-            <div style={{ height: 10, background: "var(--grid)", borderRadius: 6, overflow: "hidden" }} aria-hidden>
-              <div style={{ height: "100%", width: `${Math.min(100, 100 / ratio)}%`, background: ratio < 1.001 ? "var(--good)" : "var(--accent)", transition: "width .2s" }} />
-            </div>
+            <LossMeter label="Sum of squared residuals Σe²" cur={sse} best={minSse} bestName="least-squares" />
+            <LossMeter label="Sum of absolute residuals Σ|e|" cur={sae} best={minSae} bestName="least-absolute-error" />
+            <div className="stat-label" style={{ marginTop: 14 }}>Sum of residuals Σe</div>
+            <div className="stat-value tnum">{fmtSigned(se, 0)}</div>
             <div className="small ink2" style={{ marginTop: 6 }}>
-              {ratio < 1.001 ? <>✓ This is the minimum: the {loss === "sq" ? "least-squares" : "least-absolute-error"} line.</> : <>{fmt((ratio - 1) * 100, 0)}% above the smallest possible value ({fmt(best, 0)}).</>}
+              Positive and negative misses cancel, so a badly tilted line can still score 0. That's why the losses above square or take absolute values first.
             </div>
           </Card>
           <Card title="Read it in clinical units">
@@ -183,5 +184,21 @@ export default function TheLine() {
         In code, <code>scipy.stats.linregress(x, y)</code> or <code>LinearRegression().fit(X, y)</code> does the fit in one call.
       </Callout>
     </div>
+  );
+}
+
+function LossMeter({ label, cur, best, bestName }: { label: string; cur: number; best: number; bestName: string }) {
+  const ratio = cur / best;
+  return (
+    <>
+      <div className="stat-label" style={{ marginTop: 14 }}>{label}</div>
+      <div className="stat-value tnum">{fmt(cur, 0)}</div>
+      <div style={{ height: 10, background: "var(--grid)", borderRadius: 6, overflow: "hidden" }} aria-hidden>
+        <div style={{ height: "100%", width: `${Math.min(100, 100 / ratio)}%`, background: ratio < 1.001 ? "var(--good)" : "var(--accent)", transition: "width .2s" }} />
+      </div>
+      <div className="small ink2" style={{ marginTop: 6 }}>
+        {ratio < 1.001 ? <>✓ This is the minimum: the {bestName} line.</> : <>{fmt((ratio - 1) * 100, 0)}% above the smallest possible value ({fmt(best, 0)}).</>}
+      </div>
+    </>
   );
 }

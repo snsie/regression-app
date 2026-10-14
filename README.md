@@ -19,8 +19,11 @@ web/        React + TypeScript (Vite); reads web/public/data/*.json
 |---|---|---|
 | NHANES 2017–2018: HbA1c → fasting glucose (n≈2,500) | CDC/NCHS public-use files | Nearly linear |
 | NHANES 2017–2018: systolic BP (n≈4,400) | CDC/NCHS public-use files | Weak signal; the opening "AI assistant" example |
-| Diabetes progression (n=442) | scikit-learn (Efron et al. 2004) | Small n: boosting overfits |
+| NHANES 2011–2012: age, sex, BMI, income → FEV₁ lung function (n≈5,800) | CDC/NCHS public-use files | Curved: lung function rises, peaks in the early 20s, then falls |
 | Parkinson's telemonitoring (5,875 recordings, 42 patients) | UCI ML Repository (Tsanas et al. 2010) | Repeated patients: leakage and the choice of split |
+| Diabetes progression (n=442) | scikit-learn (Efron et al. 2004) | Small n: used only for the nested-CV section |
+
+The one-predictor scatter views use 300-person samples of age → SBP, BMI → SBP, HbA1c → glucose, and age → FEV₁ (males, so the sex gap in lung size doesn't blur the curve).
 
 ## Models
 

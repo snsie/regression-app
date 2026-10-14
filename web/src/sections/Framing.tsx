@@ -3,11 +3,12 @@ import { Plot, TipRow, extent, Legend } from "../charts/kit";
 import { Card, Callout, Loading, Segmented, SourceNote, Toggle } from "../components/ui";
 import { fmt, leastSquares, PlaygroundData, r2, useData } from "../data";
 
-export type PairId = "age_sbp" | "bmi_sbp" | "a1c_glucose";
+export type PairId = "age_sbp" | "bmi_sbp" | "a1c_glucose" | "age_fev1";
 export const PAIR_OPTIONS: { value: PairId; label: string }[] = [
   { value: "age_sbp", label: "Age → SBP" },
   { value: "bmi_sbp", label: "BMI → SBP" },
   { value: "a1c_glucose", label: "HbA1c → glucose" },
+  { value: "age_fev1", label: "Age → FEV₁" },
 ];
 
 export default function Framing() {
@@ -37,7 +38,7 @@ export default function Framing() {
       </Card>
 
       <div className="split-wide">
-        <Card title={`${p.y_label} vs ${p.x_label}`} sub={`300 randomly sampled NHANES 2017–2018 adults (of ${p.population_n.toLocaleString()} with both measured)`}>
+        <Card title={`${p.y_label} vs ${p.x_label}`} sub={`300 randomly sampled ${p.sample} (of ${p.population_n.toLocaleString()} with both measured)`}>
           <div className="controls-bar">
             <Segmented label="Predictor → outcome" value={pair} onChange={setPair} options={PAIR_OPTIONS} />
             <Toggle checked={showF} onChange={setShowF}>Show f (best straight line)</Toggle>
@@ -94,10 +95,11 @@ export default function Framing() {
               This share is R². With one straight line: R² = <b className="tnum">{fmt(R2, 3)}</b>.
             </p>
           </Card>
-          <Callout tone={pair === "bmi_sbp" ? "warn" : undefined}>
+          <Callout tone={pair === "bmi_sbp" || pair === "age_fev1" ? "warn" : undefined}>
             {pair === "age_sbp" && <>Age explains about a quarter of the variation in blood pressure. Most of what makes one person's reading differ from another's is in ε.</>}
             {pair === "bmi_sbp" && <>BMI alone explains almost nothing about one adult's blood pressure here (R² ≈ {fmt(R2, 3)}). A population trend can be real and still predict individuals poorly.</>}
             {pair === "a1c_glucose" && <>HbA1c and fasting glucose move together closely. This is the kind of near-linear relationship behind the “estimated average glucose” formula.</>}
+            {pair === "age_fev1" && <>The best straight line is almost flat (R² ≈ {fmt(R2, 3)}), yet age clearly matters: lung function (FEV₁, air blown out in one second) rises through childhood, peaks in the early 20s, then declines. A low R² from a line can mean the pattern is curved, not absent. <a href="#/ladder">See models that can bend →</a></>}
           </Callout>
         </div>
       </div>

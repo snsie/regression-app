@@ -2,7 +2,8 @@
 
 Every dataset comes from a public, citable source:
   * NHANES 2017-2018 (CDC National Center for Health Statistics), public-use files
-  * sklearn's Diabetes data (Efron et al., Annals of Statistics 2004)
+  * NHANES 2011-2012 spirometry (the most recent cycle with lung function tests)
+  * sklearn's Diabetes data (used only for the nested-CV demonstration) (Efron et al., Annals of Statistics 2004)
   * UCI Parkinson's Telemonitoring (Tsanas et al., IEEE TBME 2010)
 
 Raw files are downloaded once into ``raw/`` by ``download()``.
@@ -22,6 +23,8 @@ RAW = Path(__file__).parent / "raw"
 
 NHANES_URL = "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/{}.xpt"
 NHANES_FILES = ["DEMO_J", "BMX_J", "BPX_J", "GHB_J", "GLU_J"]
+NHANES_2011_URL = "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2011/DataFiles/{}.xpt"
+NHANES_2011_FILES = ["DEMO_G", "BMX_G", "SPX_G"]
 PARKINSONS_URL = (
     "https://archive.ics.uci.edu/ml/machine-learning-databases/"
     "parkinsons/telemonitoring/parkinsons_updrs.data"
@@ -31,6 +34,7 @@ PARKINSONS_URL = (
 def download() -> None:
     RAW.mkdir(exist_ok=True)
     targets = {f"{f}.xpt": NHANES_URL.format(f) for f in NHANES_FILES}
+    targets |= {f"{f}.xpt": NHANES_2011_URL.format(f) for f in NHANES_2011_FILES}
     targets["parkinsons_updrs.data"] = PARKINSONS_URL
     for name, url in targets.items():
         path = RAW / name
@@ -79,6 +83,21 @@ def _nhanes_adults() -> pd.DataFrame:
     d["SBP"] = d[["BPXSY1", "BPXSY2", "BPXSY3"]].mean(axis=1)
     d["female"] = (d.RIAGENDR == 2).astype(float)
     d["sex_label"] = np.where(d.female == 1, "Female", "Male")
+    return d
+
+
+def _nhanes_spirometry() -> pd.DataFrame:
+    """NHANES 2011-2012 participants aged 6-79 with a complete baseline spirometry test."""
+    def read(f: str) -> pd.DataFrame:
+        return pd.read_sas(RAW / f"{f}.xpt").set_index("SEQN")
+
+    d = (
+        read("SPX_G")[["SPXNSTAT", "SPXNFEV1"]]
+        .join(read("DEMO_G")[["RIAGENDR", "RIDAGEYR", "INDFMPIR"]])
+        .join(read("BMX_G")[["BMXBMI"]])
+    )
+    d = d[(d.SPXNSTAT == 1) & d.SPXNFEV1.notna()].copy()
+    d["female"] = (d.RIAGENDR == 2).astype(float)
     return d
 
 
@@ -161,6 +180,41 @@ def nhanes_sbp() -> Dataset:
     )
 
 
+NHANES_2011_CITE = (
+    "Centers for Disease Control and Prevention, National Center for Health "
+    "Statistics. National Health and Nutrition Examination Survey 2011-2012."
+)
+NHANES_2011_LINK = "https://wwwn.cdc.gov/nchs/nhanes/continuousnhanes/default.aspx?BeginYear=2011"
+
+
+def nhanes_fev1() -> Dataset:
+    d = _nhanes_spirometry()
+    cols = ["RIDAGEYR", "female", "BMXBMI", "INDFMPIR"]
+    s = d[cols + ["SPXNFEV1"]].dropna()
+    band = pd.cut(s.RIDAGEYR, [0, 17, 39, 59, 120], labels=["Age 6–17", "Age 18–39", "Age 40–59", "Age 60–79"])
+    return Dataset(
+        id="nhanes_fev1",
+        name="NHANES: lung function (FEV₁)",
+        story="Curved",
+        source="NHANES 2011-2012 (CDC), ages 6-79 with complete spirometry. Height is left out on purpose, so the age curve has to be learned",
+        citation=NHANES_2011_CITE,
+        url=NHANES_2011_LINK,
+        target="SPXNFEV1",
+        target_label="FEV₁ (air exhaled in the first second)",
+        units="mL",
+        X=s[cols].reset_index(drop=True),
+        y=s.SPXNFEV1.reset_index(drop=True),
+        feature_labels={
+            "RIDAGEYR": "Age (years)",
+            "female": "Female (1 = yes)",
+            "BMXBMI": "BMI (kg/m²)",
+            "INDFMPIR": "Income-to-poverty ratio",
+        },
+        subgroup=band.astype(str).reset_index(drop=True),
+        subgroup_name="Age group",
+    )
+
+
 def diabetes() -> Dataset:
     raw = load_diabetes(as_frame=True, scaled=False)
     X = raw.data.rename(columns={"s1": "tc", "s2": "ldl", "s3": "hdl", "s4": "tch", "s5": "ltg", "s6": "glu"})
@@ -231,14 +285,19 @@ def parkinsons_raw() -> pd.DataFrame:
 
 def playground_pairs(n: int = 300, seed: int = 0) -> dict[str, dict]:
     """Small one-predictor samples for the hands-on line and model-ladder views."""
-    d = _nhanes_adults()
+    adults = _nhanes_adults()
+    spiro = _nhanes_spirometry()
+    males = spiro[spiro.female == 0]
+    adults_desc = "NHANES 2017–2018 adults"
     pairs = {
-        "age_sbp": ("RIDAGEYR", "SBP", "Age", "years", "Systolic BP", "mmHg"),
-        "bmi_sbp": ("BMXBMI", "SBP", "BMI", "kg/m²", "Systolic BP", "mmHg"),
-        "a1c_glucose": ("LBXGH", "LBXGLU", "HbA1c", "%", "Fasting glucose", "mg/dL"),
+        "age_sbp": (adults, adults_desc, "RIDAGEYR", "SBP", "Age", "years", "Systolic BP", "mmHg"),
+        "bmi_sbp": (adults, adults_desc, "BMXBMI", "SBP", "BMI", "kg/m²", "Systolic BP", "mmHg"),
+        "a1c_glucose": (adults, adults_desc, "LBXGH", "LBXGLU", "HbA1c", "%", "Fasting glucose", "mg/dL"),
+        # one sex only, so the male/female gap in lung size doesn't blur the age curve
+        "age_fev1": (males, "NHANES 2011–2012 males aged 6–79", "RIDAGEYR", "SPXNFEV1", "Age", "years", "FEV₁", "mL"),
     }
     out = {}
-    for key, (x, y, xl, xu, yl, yu) in pairs.items():
+    for key, (d, desc, x, y, xl, xu, yl, yu) in pairs.items():
         s = d[[x, y]].dropna().sample(n=n, random_state=seed)
         out[key] = {
             "x": s[x].to_numpy(),
@@ -247,6 +306,7 @@ def playground_pairs(n: int = 300, seed: int = 0) -> dict[str, dict]:
             "x_units": xu,
             "y_label": yl,
             "y_units": yu,
+            "sample": desc,
             "population_n": int(d[[x, y]].dropna().shape[0]),
         }
     return out
@@ -259,4 +319,4 @@ def nhanes_two_feature(n: int = 600, seed: int = 0) -> pd.DataFrame:
 
 
 def all_datasets() -> list[Dataset]:
-    return [nhanes_glucose(), nhanes_sbp(), diabetes(), parkinsons()]
+    return [nhanes_glucose(), nhanes_sbp(), nhanes_fev1(), parkinsons()]

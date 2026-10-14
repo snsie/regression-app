@@ -19,12 +19,12 @@ export const MODEL_COLOR: Record<ModelId, string> = {
 };
 
 export type SplitId = "kfold" | "random" | "temporal" | "group";
-export type DatasetId = "nhanes_glucose" | "nhanes_sbp" | "diabetes" | "parkinsons";
-export const DATASET_IDS: DatasetId[] = ["nhanes_glucose", "nhanes_sbp", "diabetes", "parkinsons"];
+export type DatasetId = "nhanes_glucose" | "nhanes_sbp" | "nhanes_fev1" | "parkinsons";
+export const DATASET_IDS: DatasetId[] = ["nhanes_glucose", "nhanes_sbp", "nhanes_fev1", "parkinsons"];
 export const DATASET_SHORT: Record<DatasetId, string> = {
   nhanes_glucose: "HbA1c → glucose",
   nhanes_sbp: "Blood pressure",
-  diabetes: "Diabetes (n=442)",
+  nhanes_fev1: "Lung function (FEV₁)",
   parkinsons: "Parkinson's",
 };
 
@@ -66,7 +66,7 @@ export interface DatasetData {
 }
 
 export interface PlaygroundPair {
-  x_label: string; x_units: string; y_label: string; y_units: string; population_n: number;
+  x_label: string; x_units: string; y_label: string; y_units: string; sample: string; population_n: number;
   x: number[]; y: number[]; grid: number[]; data_range: [number, number];
   linear: { intercept: number; slope: number; train_r2: number; cv_r2: number };
   rf: Record<string, { curve: number[]; train_r2: number; cv_r2: number }>;
@@ -77,7 +77,7 @@ export type TreeNode =
   | { leaf: true; value: number; n: number }
   | { leaf: false; feature: "age" | "bmi"; threshold: number; n: number; left: TreeNode; right: TreeNode };
 export interface PlaygroundData {
-  pairs: Record<"age_sbp" | "bmi_sbp" | "a1c_glucose", PlaygroundPair>;
+  pairs: Record<"age_sbp" | "bmi_sbp" | "a1c_glucose" | "age_fev1", PlaygroundPair>;
   rf_trees: number[]; rf_leaves: number[]; gb_rounds: number[]; gb_lrs: number[];
   trees: {
     n: number; mean_sbp: number; trees: TreeNode[];

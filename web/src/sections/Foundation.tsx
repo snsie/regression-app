@@ -9,7 +9,7 @@ const Q = [0.05, 0.1, 0.25, 0.75, 0.9, 0.95];
 const LEVELS = [0.5, 0.8, 0.9];
 
 export default function Foundation() {
-  const [id, setId] = useState<DatasetId>("diabetes");
+  const [id, setId] = useState<DatasetId>("nhanes_fev1");
   const [level, setLevel] = useState(0.9);
   const [model, setModel] = useState<"tabicl" | "linear">("tabicl");
   const ds = useDataset(id);

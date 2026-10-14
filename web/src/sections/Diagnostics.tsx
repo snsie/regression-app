@@ -8,7 +8,7 @@ import { DATASET_IDS, DatasetId, fmt, MODEL_COLOR, MODEL_LABEL, ModelId, r2, rms
 const MAX_POINTS = 1500;
 
 export default function Diagnostics() {
-  const [id, setId] = useState<DatasetId>("diabetes");
+  const [id, setId] = useState<DatasetId>("nhanes_fev1");
   const [model, setModel] = useState<ModelId>("linear");
   const [split, setSplit] = useState<SplitId | null>(null);
   const ds = useDataset(id);

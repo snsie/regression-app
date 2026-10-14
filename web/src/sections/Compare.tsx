@@ -7,7 +7,7 @@ import { DATASET_IDS, DATASET_SHORT, DatasetData, DatasetId, fmt, load, mean, MO
 const ROWS: { ds: DatasetId; split: SplitId; label: string }[] = [
   { ds: "nhanes_glucose", split: "kfold", label: "HbA1c → glucose" },
   { ds: "nhanes_sbp", split: "kfold", label: "Blood pressure" },
-  { ds: "diabetes", split: "kfold", label: "Diabetes (n=442)" },
+  { ds: "nhanes_fev1", split: "kfold", label: "Lung function (FEV₁)" },
   { ds: "parkinsons", split: "random", label: "Parkinson's · random rows" },
   { ds: "parkinsons", split: "temporal", label: "Parkinson's · known patients" },
   { ds: "parkinsons", split: "group", label: "Parkinson's · new patients" },
@@ -21,7 +21,7 @@ function cellColor(v: number) {
 
 export default function Compare() {
   const [all, setAll] = useState<Record<DatasetId, DatasetData> | null>(null);
-  const [foldDs, setFoldDs] = useState<DatasetId>("diabetes");
+  const [foldDs, setFoldDs] = useState<DatasetId>("nhanes_fev1");
   const [a, setA] = useState<ModelId>("linear");
   const [b, setB] = useState<ModelId>("rf");
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function Compare() {
 
       <div className="grid-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
         <Card title="Nearly linear"><div className="small ink2">HbA1c → glucose: every model lands within a few hundredths of the line, and only the line fits on an index card.</div></Card>
-        <Card title="Small n"><div className="small ink2">Diabetes, 442 patients: linear beats both tree ensembles (default boosting overfits). The foundation model ties it, within the noise.</div></Card>
+        <Card title="Curved signal"><div className="small ink2">Lung function rises with age, peaks in the early 20s, then falls. A straight line can't bend, so every flexible model beats it by more than 0.4.</div></Card>
         <Card title="Rich signal"><div className="small ink2">Known Parkinson's patients: every flexible model leaves linear far behind.</div></Card>
         <Card title="No signal"><div className="small ink2">New Parkinson's patients: every model is worse than predicting the average.</div></Card>
       </div>

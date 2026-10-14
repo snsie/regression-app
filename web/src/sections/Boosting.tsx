@@ -22,7 +22,7 @@ export default function Boosting() {
   const [rounds, setRounds] = useState(3);
   const [lr, setLr] = useState(0.3);
   const [px, setPx] = useState<number | null>(null);
-  const [dsId, setDsId] = useState<DatasetId>("diabetes");
+  const [dsId, setDsId] = useState<DatasetId>("nhanes_sbp");
   const [dlr, setDlr] = useState("0.1");
   const ds = useDataset(dsId);
   if (!pg) return <Loading />;
@@ -41,7 +41,7 @@ export default function Boosting() {
   return (
     <div className="stack">
       <div className="split-wide">
-        <Card title="Watch the trees add up" sub="Small trees (4 leaves each) on 300 NHANES adults">
+        <Card title="Watch the trees add up" sub={`Small trees (4 leaves each) on 300 ${p.sample}`}>
           <div className="controls-bar">
             <Segmented label="Data" value={pair} onChange={(v) => { setPair(v); setPx(null); }} options={PAIR_OPTIONS} />
             <Segmented label="Learning rate" value={lr} onChange={setLr} options={pg.gb_lrs.map((v) => ({ value: v, label: String(v) }))} />

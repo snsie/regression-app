@@ -4,7 +4,7 @@ import { useWidth } from "../charts/kit";
 import { Card, Callout, DatasetPicker, Loading, Slider, SourceNote, Toggle } from "../components/ui";
 import { DatasetId, fmt, fmtSigned, useDataset } from "../data";
 
-const IDS: DatasetId[] = ["nhanes_glucose", "nhanes_sbp", "diabetes"];
+const IDS: DatasetId[] = ["nhanes_glucose", "nhanes_sbp", "nhanes_fev1"];
 
 export default function Recipe() {
   const [id, setId] = useState<DatasetId>("nhanes_glucose");
@@ -125,6 +125,12 @@ export default function Recipe() {
           eAG = 28.7 × A1C − 46.7 with R² = 0.84. That formula is how labs report an “estimated average glucose”. Here the outcome is a single
           <i> fasting</i> glucose, so expect a similar slope with more scatter.
           <div className="small muted" style={{ marginTop: 6 }}>Nathan DM et al. Diabetes Care 2008;31:1473–8. doi:10.2337/dc08-0545</div>
+        </Callout>
+      )}
+      {id === "nhanes_fev1" && (
+        <Callout tone="warn">
+          <b>One weight per year of age, for everyone.</b> Lung function rises until the early 20s and falls after, but the recipe can only add
+          the same amount for each year, so it fits children and older adults badly. Compare the models on this dataset in <a href="#/compare">No model always wins</a>.
         </Callout>
       )}
       <div className="grid-2">

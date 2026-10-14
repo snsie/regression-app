@@ -22,7 +22,7 @@ def rep(ds, split, model):
 
 
 def main():
-    lab, glu, dia, pk = j("lab"), j("nhanes_glucose"), j("diabetes"), j("parkinsons")
+    lab, glu, sbp, fev, pk = j("lab"), j("nhanes_glucose"), j("nhanes_sbp"), j("nhanes_fev1"), j("parkinsons")
     checks = []
 
     def check(name, ok):
@@ -45,15 +45,18 @@ def main():
 
     best_glu = max(rep(glu, "kfold", m) for m in ("linear", "rf", "gbm", "tabicl"))
     check("Compare: glucose, linear within 0.03 of the best", best_glu - rep(glu, "kfold", "linear") <= 0.03)
-    check("Compare: diabetes, linear beats both tree ensembles",
-          rep(dia, "kfold", "linear") > max(rep(dia, "kfold", "rf"), rep(dia, "kfold", "gbm")))
+    check("Compare: lung function, every flexible model beats linear by > 0.3",
+          min(rep(fev, "kfold", m) for m in ("rf", "gbm", "tabicl")) - rep(fev, "kfold", "linear") > 0.3)
+    pg = j("playground")["pairs"]["age_fev1"]
+    check("Framing/ladder: Age → FEV₁ line is nearly flat (R² < 0.05) but a forest bends (CV R² > 0.3)",
+          pg["linear"]["train_r2"] < 0.05 and pg["rf"]["300_20"]["cv_r2"] > 0.3)
     flex = max(rep(pk, "temporal", m) for m in ("rf", "gbm", "tabicl"))
     check("Compare: known Parkinson's patients, flexible models beat linear by > 0.2", flex - rep(pk, "temporal", "linear") > 0.2)
 
-    b = dia["boosting"]
+    b = sbp["boosting"]
     i100 = b["rounds"].index(100)
     c = b["learning_rates"]["0.1"]
-    check("Boosting: default LightGBM overfits diabetes (gap > 0.3)", c["train_r2"][i100] - c["test_r2"][i100] > 0.3)
+    check("Boosting: default LightGBM overfits blood pressure (gap > 0.3)", c["train_r2"][i100] - c["test_r2"][i100] > 0.3)
 
     n = lab["nested"]
     check("Nested: best_score_ is optimistic vs nested CV", n["best_score"] >= n["nested_mean"])
