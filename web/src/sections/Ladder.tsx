@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { area, line } from "d3-shape";
+import { line } from "d3-shape";
 import { Plot, TipRow, Legend, HoverColumns } from "../charts/kit";
 import { TrainTestBars, TrainTestLegend } from "../charts/bars";
 import { Card, Callout, Loading, Segmented, StepSlider, Toggle } from "../components/ui";
@@ -22,7 +22,6 @@ export default function Ladder() {
   const [leaf, setLeaf] = useState(1);
   const [lr, setLr] = useState(0.1);
   const [rounds, setRounds] = useState(50);
-  const [band, setBand] = useState(true);
   const [extrap, setExtrap] = useState(true);
   if (!pg) return <Loading />;
   const p = pg.pairs[pair];
@@ -69,7 +68,6 @@ export default function Ladder() {
           <div className="controls-bar">
             <Segmented label="Data" value={pair} onChange={setPair} options={PAIR_OPTIONS} />
             <Toggle checked={extrap} onChange={setExtrap}>Show beyond the data</Toggle>
-            {on.tabicl && <Toggle checked={band} onChange={setBand}>Foundation model 90% interval</Toggle>}
           </div>
           <Legend items={shown.map((m) => ({ label: RUNGS.find((r) => r.id === m)!.name, color: MODEL_COLOR[m] }))} />
           <Plot height={420}
@@ -96,10 +94,6 @@ export default function Ladder() {
                     <circle key={i} cx={x(xv)} cy={y(p.y[i])} r={3.2} fill="var(--muted)" opacity={0.35} />
                   ))}
                   <g clipPath={`url(#${clipId})`}>
-                    {on.tabicl && band && (
-                      <path d={area<number>().x((i) => x(g[i])).y0((i) => y(p.tabicl.lo[i])).y1((i) => y(p.tabicl.hi[i]))(visIdx) ?? ""}
-                        fill="var(--m-tabicl)" opacity={0.13} />
-                    )}
                     {shown.map((m) => {
                       const c = curves[m]!;
                       const d = line<number>().x((i) => x(g[i])).y((i) => y(c[i]))(visIdx);
